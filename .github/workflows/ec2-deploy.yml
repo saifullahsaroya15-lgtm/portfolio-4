@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [master]    # ya main, aapke repo ke branch ke hisab se
+    branches: [master]   # Change to 'main' if needed
   workflow_dispatch:
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT || '22' }}
           source: "docker-image.tar"
-          target: "/tmp/vivek-portfolio/docker-image.tar"
+          target: "/tmp/vivek-portfolio/"   # Target is directory
 
       - name: Deploy Docker container on EC2
         uses: appleboy/ssh-action@v1
@@ -58,8 +58,23 @@ jobs:
           port: ${{ secrets.EC2_PORT || '22' }}
           script: |
             set -euo pipefail
+
+            # Ensure folder exists
             mkdir -p /tmp/vivek-portfolio
-            docker load -i /tmp/vivek-portfolio/docker-image.tar
+
+            # Load Docker image from nested path
+            docker load -i /tmp/vivek-portfolio/docker-image.tar/docker-image.tar
+
+            # Remove old container if exists
             docker rm -f vivek-portfolio || true
+
+            # Clean old images to save space
             docker image prune -f
+
+            # Run new container
+            docker run -d --name vivek-portfolio \
+              -p 3000:3000 \
+              --restart unless-stopped \
+              vivek-portfolio:latest
+
             docker run -d --name vivek-portfolio -p 3000:3000 --restart unless-stopped vivek-portfolio:latest
