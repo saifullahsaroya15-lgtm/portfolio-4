@@ -77,4 +77,3 @@ jobs:
               -p 3000:3000 \
               --restart unless-stopped \
               vivek-portfolio:latest
---restart unless-stopped vivek-portfolio:latest
