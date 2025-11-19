@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [master]   # Change if your default branch is 'master'
+    branches: [master]   # Change to 'main' if needed
   workflow_dispatch:
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
           name: docker-image
 
       - name: Copy Docker image to EC2
-        uses: appleboy/scp-action@v0.1.9
+        uses: appleboy/scp-action@v0.1.8
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
@@ -50,7 +50,7 @@ jobs:
           target: "/tmp/vivek-portfolio/docker-image.tar"
 
       - name: Deploy Docker container on EC2
-        uses: appleboy/ssh-action@v0.1.9
+        uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
