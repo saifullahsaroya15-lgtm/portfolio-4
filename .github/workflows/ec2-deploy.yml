@@ -47,7 +47,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT || '22' }}
           source: "docker-image.tar"
-          target: "/tmp/vivek-portfolio/"   # Target is directory
+          target: "/tmp/vivek-portfolio/"
+          rm: true   # Remove old file before untar to avoid conflict
 
       - name: Deploy Docker container on EC2
         uses: appleboy/ssh-action@v1
@@ -76,5 +77,4 @@ jobs:
               -p 3000:3000 \
               --restart unless-stopped \
               vivek-portfolio:latest
-
-            docker run -d --name vivek-portfolio -p 3000:3000 --restart unless-stopped vivek-portfolio:latest
+--restart unless-stopped vivek-portfolio:latest
