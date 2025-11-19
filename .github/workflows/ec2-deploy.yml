@@ -38,42 +38,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: docker-image
+          path: docker-image  # Ensures artifact extracted into this folder
 
       - name: Copy Docker image to EC2
         uses: appleboy/scp-action@v1
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT || '22' }}
-          source: "docker-image.tar"
-          target: "/tmp/vivek-portfolio/"
-          rm: true   # Remove old file before untar to avoid conflict
-
-      - name: Deploy Docker container on EC2
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT || '22' }}
-          script: |
-            set -euo pipefail
-
-            # Ensure folder exists
-            mkdir -p /tmp/vivek-portfolio
-
-            # Load Docker image from nested path
-            docker load -i /tmp/vivek-portfolio/docker-image.tar/docker-image.tar
-
-            # Remove old container if exists
-            docker rm -f vivek-portfolio || true
-
-            # Clean old images to save space
-            docker image prune -f
-
-            # Run new container
-            docker run -d --name vivek-portfolio \
-              -p 3000:3000 \
-              --restart unless-stopped \
-              vivek-portfolio:latest
+          host: $
