@@ -85,9 +85,6 @@ jobs:
             # Ensure folder exists
             mkdir -p /tmp/vivek-portfolio
 
-            # Remove old container if exists
-            docker rm -f vivek-portfolio || true
-
             # Load Docker image
             docker load -i /tmp/vivek-portfolio/docker-image.tar
 
