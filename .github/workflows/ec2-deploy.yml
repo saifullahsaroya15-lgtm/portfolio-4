@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [master]
+    branches: [main]   # Change if your default branch is 'master'
   workflow_dispatch:
 
 jobs:
@@ -19,10 +19,10 @@ jobs:
       - name: Build Docker image
         run: docker build -t vivek-portfolio:latest .
 
-      - name: Save Docker image artifact
+      - name: Save Docker image as artifact
         run: docker save vivek-portfolio:latest -o docker-image.tar
 
-      - name: Upload Docker image
+      - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
           name: docker-image
@@ -34,23 +34,23 @@ jobs:
     if: ${{ needs.build.result == 'success' }}
 
     steps:
-      - name: Download Docker image
+      - name: Download Docker image artifact
         uses: actions/download-artifact@v4
         with:
           name: docker-image
 
-      - name: Copy bundle to EC2
-        uses: appleboy/scp-action@v0.1.7
+      - name: Copy Docker image to EC2
+        uses: appleboy/scp-action@v0.1.9
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT || '22' }}
           source: "docker-image.tar"
-          target: "/tmp/vivek-portfolio"
+          target: "/tmp/vivek-portfolio/docker-image.tar"
 
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.0.1
+      - name: Deploy Docker container on EC2
+        uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
@@ -58,12 +58,21 @@ jobs:
           port: ${{ secrets.EC2_PORT || '22' }}
           script: |
             set -euo pipefail
+
+            # Ensure folder exists
             mkdir -p /tmp/vivek-portfolio
-            cd /tmp/vivek-portfolio
-            docker load -i docker-image.tar
+
+            # Load Docker image
+            docker load -i /tmp/vivek-portfolio/docker-image.tar
+
+            # Remove old container if exists
             docker rm -f vivek-portfolio || true
+
+            # Optionally clean old images to save disk space
+            docker image prune -f
+
+            # Run new container
             docker run -d --name vivek-portfolio \
               -p 3000:3000 \
               --restart unless-stopped \
               vivek-portfolio:latest
-
