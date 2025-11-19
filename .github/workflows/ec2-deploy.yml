@@ -5,12 +5,6 @@ on:
     branches: [master]
   workflow_dispatch:
 
-env:
-  NEXT_PUBLIC_TRACKING_ID: ${{ secrets.NEXT_PUBLIC_TRACKING_ID }}
-  NEXT_PUBLIC_SERVICE_ID: ${{ secrets.NEXT_PUBLIC_SERVICE_ID }}
-  NEXT_PUBLIC_TEMPLATE_ID: ${{ secrets.NEXT_PUBLIC_TEMPLATE_ID }}
-  NEXT_PUBLIC_USER_ID: ${{ secrets.NEXT_PUBLIC_USER_ID }}
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -19,27 +13,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: "yarn"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
+      - name: Build Docker image
+        run: docker build -t vivek-portfolio:latest .
 
-      - name: Build Next.js site
-        run: yarn build
+      - name: Save Docker image artifact
+        run: docker save vivek-portfolio:latest -o docker-image.tar
 
-      - name: Package deployment bundle
-        run: |
-          tar -czf release.tar.gz .next public package.json yarn.lock
-
-      - name: Upload deployment artifact
+      - name: Upload Docker image
         uses: actions/upload-artifact@v4
         with:
-          name: ec2-bundle
-          path: release.tar.gz
+          name: docker-image
+          path: docker-image.tar
 
   deploy:
     needs: build
@@ -47,10 +34,10 @@ jobs:
     if: ${{ needs.build.result == 'success' }}
 
     steps:
-      - name: Download deployment artifact
+      - name: Download Docker image
         uses: actions/download-artifact@v4
         with:
-          name: ec2-bundle
+          name: docker-image
 
       - name: Copy bundle to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -58,8 +45,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT }}
-          source: "release.tar.gz"
+          port: ${{ secrets.EC2_PORT || '22' }}
+          source: "docker-image.tar"
           target: "/tmp/vivek-portfolio"
 
       - name: Deploy on EC2
@@ -68,18 +55,15 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT }}
+          port: ${{ secrets.EC2_PORT || '22' }}
           script: |
             set -euo pipefail
             mkdir -p /tmp/vivek-portfolio
             cd /tmp/vivek-portfolio
-            tar -xzf release.tar.gz
-            rm -rf ${{ secrets.EC2_APP_DIR }}/.next
-            rm -rf ${{ secrets.EC2_APP_DIR }}/public
-            mkdir -p ${{ secrets.EC2_APP_DIR }}
-            cp -r .next public package.json yarn.lock ${{ secrets.EC2_APP_DIR }}/
-            cd ${{ secrets.EC2_APP_DIR }}
-            yarn install --production --frozen-lockfile
-            pm2 describe vivek-portfolio >/dev/null 2>&1 && pm2 restart vivek-portfolio || pm2 start "yarn start" --name vivek-portfolio
-            pm2 save
+            docker load -i docker-image.tar
+            docker rm -f vivek-portfolio || true
+            docker run -d --name vivek-portfolio \
+              -p 3000:3000 \
+              --restart unless-stopped \
+              vivek-portfolio:latest
 
